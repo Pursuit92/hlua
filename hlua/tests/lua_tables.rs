@@ -29,7 +29,7 @@ fn iterable_multipletimes() {
 
     let mut table = lua.get::<LuaTable<_>, _>("a").unwrap();
 
-    for _ in (0 .. 10) {
+    for _ in 0 .. 10 {
         let table_content: Vec<Option<(u32, u32)>> = table.iter().collect();
         assert_eq!(table_content, vec![ Some((1,9)), Some((2,8)), Some((3,7)) ]);
     }

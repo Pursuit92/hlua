@@ -1,5 +1,4 @@
 use ffi;
-use libc;
 
 use AsLua;
 use AsMutLua;
@@ -72,13 +71,13 @@ macro_rules! impl_function_ext {
                 unsafe {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
-                                                        mem::size_of::<Z>() as libc::size_t);
+                                                        mem::size_of::<Z>() as ffi::size_t);
                     let lua_data: *mut Z = mem::transmute(lua_data);
                     ptr::write(lua_data, self.function);
 
                     // pushing wrapper as a closure
-                    let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua.as_mut_lua().0, wrapper, 1);
+                    let wrapper: unsafe extern fn(*mut ffi::lua_State) -> ffi::c_int = wrapper::<Self, _, R>;
+                    ffi::lua_pushcclosure(lua.as_mut_lua().0, Some(wrapper), 1);
                     PushGuard { lua: lua, size: 1 }
                 }
             }
@@ -106,13 +105,13 @@ macro_rules! impl_function_ext {
                 unsafe {
                     // pushing the function pointer as a userdata
                     let lua_data = ffi::lua_newuserdata(lua.as_mut_lua().0,
-                                                        mem::size_of::<Z>() as libc::size_t);
+                                                        mem::size_of::<Z>() as ffi::size_t);
                     let lua_data: *mut Z = mem::transmute(lua_data);
                     ptr::write(lua_data, self.function);
 
                     // pushing wrapper as a closure
-                    let wrapper: extern fn(*mut ffi::lua_State) -> libc::c_int = wrapper::<Self, _, R>;
-                    ffi::lua_pushcclosure(lua.as_mut_lua().0, wrapper, 1);
+                    let wrapper: unsafe extern fn(*mut ffi::lua_State) -> ffi::c_int = wrapper::<Self, _, R>;
+                    ffi::lua_pushcclosure(lua.as_mut_lua().0, Some(wrapper), 1);
                     PushGuard { lua: lua, size: 1 }
                 }
             }
@@ -177,25 +176,25 @@ impl<'a, T, E> Push<&'a mut InsideCallback> for Result<T, E>
 }
 
 // this function is called when Lua wants to call one of our functions
-extern fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
+unsafe extern fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> ffi::c_int
                            where T: FunctionExt<P, Output=R>,
                                  P: for<'p> LuaRead<&'p mut InsideCallback> + 'static,
                                  R: for<'p> Push<&'p mut InsideCallback>
 {
     // loading the object that we want to call from the Lua context
-    let data_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
-    let data: &mut T = unsafe { mem::transmute(data_raw) };
+    let data_raw = ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1));
+    let data: &mut T = mem::transmute(data_raw);
 
     // creating a temporary Lua context in order to pass it to push & read functions
     let mut tmp_lua = InsideCallback { lua: LuaContext(lua) };
 
     // trying to read the arguments
-    let arguments_count = unsafe { ffi::lua_gettop(lua) } as i32;
-    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as libc::c_int) {      // TODO: what if the user has the wrong params?
+    let arguments_count = ffi::lua_gettop(lua) as i32;
+    let args = match LuaRead::lua_read_at_position(&mut tmp_lua, -arguments_count as ffi::c_int) {      // TODO: what if the user has the wrong params?
         Err(_) => {
             let err_msg = format!("wrong parameter types for callback function");
             err_msg.push_to_lua(&mut tmp_lua).forget();
-            unsafe { ffi::lua_error(lua); }
+            ffi::lua_error(lua);
             unreachable!()
         },
         Ok(a) => a
@@ -205,5 +204,5 @@ extern fn wrapper<T, P, R>(lua: *mut ffi::lua_State) -> libc::c_int
 
     // pushing back the result of the function on the stack
     let nb = ret_value.push_to_lua(&mut tmp_lua).forget();
-    nb as libc::c_int
+    nb as ffi::c_int
 }

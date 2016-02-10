@@ -95,7 +95,7 @@ fn closures_extern_access() {
         let mut lua = hlua::Lua::new();
 
         lua.set("inc", hlua::function0(|| a += 1));
-        for _ in (0 .. 15) {
+        for _ in 0 .. 15 {
             lua.execute::<()>("inc()").unwrap();
         }
     }

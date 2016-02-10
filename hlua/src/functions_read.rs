@@ -1,5 +1,4 @@
 use ffi;
-use libc;
 
 use std::ffi::CString;
 use std::io::Cursor;
@@ -25,27 +24,27 @@ struct ReadData<R> {
     triggered_error: Option<IoError>,
 }
 
-extern fn reader<R>(_: *mut ffi::lua_State, data_raw: *mut libc::c_void, size: *mut libc::size_t)
-                    -> *const libc::c_char
+unsafe extern fn reader<R>(_: *mut ffi::lua_State, data_raw: *mut ::std::os::raw::c_void, size: *mut ffi::size_t)
+                    -> *const ::std::os::raw::c_char
                     where R: Read
 {
-    let data: &mut ReadData<R> = unsafe { mem::transmute(data_raw) };
+    let data: &mut ReadData<R> = mem::transmute(data_raw);
 
     if data.triggered_error.is_some() {
-        unsafe { (*size) = 0 }
-        return data.buffer.as_ptr() as *const libc::c_char;
+        (*size) = 0;
+        return data.buffer.as_ptr() as *const ::std::os::raw::c_char;
     }
 
     match data.reader.read(&mut data.buffer) {
         Ok(len) =>
-            unsafe { (*size) = len as libc::size_t },
+            (*size) = len as ffi::size_t,
         Err(e) => {
-            unsafe { (*size) = 0 }
+            (*size) = 0;
             data.triggered_error = Some(e)
         },
     };
 
-    data.buffer.as_ptr() as *const libc::c_char
+    data.buffer.as_ptr() as *const ::std::os::raw::c_char
 }
 
 impl<L> LuaFunction<L> where L: AsMutLua {
@@ -96,7 +95,7 @@ impl<L> LuaFunction<L> where L: AsMutLua {
 
         let (load_return_value, pushed_value) = unsafe {
             let chunk_name = CString::new("chunk").unwrap();
-            let code = ffi::lua_load(lua.as_mut_lua().0, reader::<R>, mem::transmute(&readdata),
+            let code = ffi::lua_load(lua.as_mut_lua().0, Some(reader::<R>), mem::transmute(&readdata),
                                      chunk_name.as_ptr(), ptr::null());
             (code, PushGuard { lua: lua, size: 1 })
         };
@@ -145,7 +144,7 @@ impl<L> LuaFunction<L> where L: AsMutLua {
 impl<L> LuaRead<L> for LuaFunction<L> where L: AsMutLua {
     fn lua_read_at_position(mut lua: L, index: i32) -> Result<LuaFunction<L>, L> {
         assert!(index == -1);   // FIXME:
-        if unsafe { ffi::lua_isfunction(lua.as_mut_lua().0, -1) } {
+        if unsafe { ffi::lua_iscfunction(lua.as_mut_lua().0, -1) } != 0 {
             Ok(LuaFunction { variable: lua })
         } else {
             Err(lua)

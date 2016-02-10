@@ -5,7 +5,6 @@ use std::mem;
 use std::ptr;
 
 use ffi;
-use libc;
 
 use AsLua;
 use AsMutLua;
@@ -16,14 +15,14 @@ use LuaRead;
 use InsideCallback;
 use LuaTable;
 
-extern fn destructor_wrapper(lua: *mut ffi::lua_State) -> libc::c_int {
+extern fn destructor_wrapper(lua: *mut ffi::lua_State) -> ffi::c_int {
     let impl_raw = unsafe { ffi::lua_touserdata(lua, ffi::lua_upvalueindex(1)) };
-    let imp: fn(*mut ffi::lua_State)->::libc::c_int = unsafe { mem::transmute(impl_raw) };
+    let imp: fn(*mut ffi::lua_State)->::ffi::c_int = unsafe { mem::transmute(impl_raw) };
 
     imp(lua)
 }
 
-fn destructor_impl<T>(lua: *mut ffi::lua_State) -> libc::c_int {
+fn destructor_impl<T>(lua: *mut ffi::lua_State) -> ffi::c_int {
     let obj = unsafe { ffi::lua_touserdata(lua, -1) };
     let obj: &mut T = unsafe { mem::transmute(obj) };
     mem::replace(obj, unsafe { mem::uninitialized() });
@@ -52,7 +51,7 @@ pub fn push_userdata<L, T, F>(data: T, mut lua: L, mut metatable: F) -> PushGuar
     let typeid = format!("{:?}", TypeId::of::<T>());
 
     let lua_data_raw = unsafe { ffi::lua_newuserdata(lua.as_mut_lua().0,
-                                                     mem::size_of_val(&data) as libc::size_t) };
+                                                     mem::size_of_val(&data) as ffi::size_t) };
     let lua_data: *mut T = unsafe { mem::transmute(lua_data_raw) };
     unsafe { ptr::write(lua_data, data) };
 
@@ -72,7 +71,7 @@ pub fn push_userdata<L, T, F>(data: T, mut lua: L, mut metatable: F) -> PushGuar
             "__gc".push_to_lua(&mut lua).forget();
 
             // pushing destructor_impl as a lightuserdata
-            let destructor_impl: fn(*mut ffi::lua_State) -> libc::c_int = destructor_impl::<T>;
+            let destructor_impl: fn(*mut ffi::lua_State) -> ffi::c_int = destructor_impl::<T>;
             ffi::lua_pushlightuserdata(lua.as_mut_lua().0, mem::transmute(destructor_impl));
 
             // pushing destructor_wrapper as a closure

@@ -1,7 +1,6 @@
-extern crate lua52_sys as ffi;
-extern crate libc;
+extern crate liblua_sys as ffi;
 
-use std::ffi::{CStr, CString};
+use std::ffi::{CString};
 use std::io::Read;
 use std::io::Error as IoError;
 use std::borrow::Borrow;
@@ -81,7 +80,6 @@ pub unsafe trait AsMutLua: AsLua {
 
 /// Opaque type that contains the raw Lua context.
 #[derive(Copy, Clone)]
-#[allow(raw_pointer_derive)]
 pub struct LuaContext(*mut ffi::lua_State);
 unsafe impl Send for LuaContext {}
 
@@ -179,34 +177,12 @@ impl<'lua> Lua<'lua> {
     /// The function panics if the underlying call to `lua_newstate` fails
     /// (which indicates lack of memory).
     pub fn new() -> Lua<'lua> {
-        let lua = unsafe { ffi::lua_newstate(alloc, std::ptr::null_mut()) };
+        let lua = unsafe { ffi::luaL_newstate() };
         if lua.is_null() {
             panic!("lua_newstate failed");
         }
 
-        // this alloc function is required to create a lua state.
-        extern "C" fn alloc(_ud: *mut libc::c_void, ptr: *mut libc::c_void, _osize: libc::size_t,
-                            nsize: libc::size_t) -> *mut libc::c_void
-        {
-            unsafe {
-                if nsize == 0 {
-                    libc::free(ptr as *mut libc::c_void);
-                    std::ptr::null_mut()
-                } else {
-                    libc::realloc(ptr, nsize)
-                }
-            }
-        }
-
-        // called whenever lua encounters an unexpected error.
-        extern "C" fn panic(lua: *mut ffi::lua_State) -> libc::c_int {
-            let err = unsafe { ffi::lua_tostring(lua, -1) };
-            let err = unsafe { CStr::from_ptr(err) };
-            let err = String::from_utf8(err.to_bytes().to_vec()).unwrap();
-            panic!("PANIC: unprotected error in call to Lua API ({})\n", err);
-        }
-
-        unsafe { ffi::lua_atpanic(lua, panic) };
+        unsafe { ffi::lua_atpanic(lua, Some(ffi::panic)) };
 
         Lua {
             lua: LuaContext(lua),

@@ -2,7 +2,6 @@ use std::ffi::{CStr, CString};
 use std::mem;
 
 use ffi;
-use libc;
 
 use AsLua;
 use AsMutLua;
@@ -99,7 +98,7 @@ impl<L> Push<L> for String where L: AsMutLua {
 
 impl<L> LuaRead<L> for String where L: AsLua {
     fn lua_read_at_position(lua: L, index: i32) -> Result<String, L> {
-        let mut size: libc::size_t = unsafe { mem::uninitialized() };
+        let mut size: ffi::size_t = unsafe { mem::uninitialized() };
         let c_str_raw = unsafe { ffi::lua_tolstring(lua.as_lua().0, index, &mut size) };
         if c_str_raw.is_null() {
             return Err(lua);
@@ -122,7 +121,7 @@ impl<'s, L> Push<L> for &'s str where L: AsMutLua {
 
 impl<L> Push<L> for bool where L: AsMutLua {
     fn push_to_lua(self, mut lua: L) -> PushGuard<L> {
-        unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self.clone() as libc::c_int) };
+        unsafe { ffi::lua_pushboolean(lua.as_mut_lua().0, self.clone() as ffi::c_int) };
         PushGuard { lua: lua, size: 1 }
     }
 }
