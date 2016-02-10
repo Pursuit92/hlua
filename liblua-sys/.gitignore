@@ -1,0 +1,4 @@
+*.o
+*.a
+lua-*/src/lua
+lua-*/src/luac

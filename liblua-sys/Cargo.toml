@@ -1,0 +1,9 @@
+[package]
+name = "liblua_sys"
+version = "0.1.0"
+build = "build.rs"
+authors = ["Josh Chase <jcjoshuachase@gmail.com>"]
+
+[build-dependencies]
+pkg-config = "0.3"
+gcc = "0.3"
