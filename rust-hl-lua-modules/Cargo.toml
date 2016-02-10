@@ -1,5 +1,4 @@
 [package]
-
 name = "rust-hl-lua-modules"
 version = "0.1.0"
 authors = [ "pierre.krieger1708@gmail.com" ]
@@ -9,5 +8,5 @@ name = "rust_hl_lua_modules"
 crate_type = ["dylib"]
 plugin = true
 
-[dependencies.rust-hl-lua]
-path = "../rust-hl-lua"
+# [dependencies.rust-hl-lua]
+# path = "../rust-hl-lua"
